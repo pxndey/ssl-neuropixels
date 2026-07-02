@@ -64,19 +64,30 @@ def main(args) -> None:
     session = Path(args.session)
     device = torch.device(args.device)
 
-    spike_times = np.load(session / "spike_times.npy").astype(np.int64)   # sample indices
-    centroids = np.load(session / "centroids.npy").astype(np.float64)     # (S, 2) = (x, y)
-    amp = peak_amplitudes(session)
+    if args.loc_npy:
+        # real per-spike localizations (e.g. sln preprocessed: cols x, y(depth), z, alpha)
+        loc = np.load(args.loc_npy)
+        x_all = loc[:, args.x_col].astype(np.float64)
+        y_all = loc[:, args.depth_col].astype(np.float64)
+        amp = np.abs(loc[:, args.amp_col]).astype(np.float32)
+        spike_times = np.load(args.times_npy).astype(np.int64)
+        src = f"{args.loc_npy} (depth=col{args.depth_col}, amp=col{args.amp_col})"
+    else:
+        spike_times = np.load(session / "spike_times.npy").astype(np.int64)   # sample indices
+        centroids = np.load(session / "centroids.npy").astype(np.float64)     # (S, 2) = (x, y)
+        x_all, y_all = centroids[:, 0], centroids[:, 1]
+        amp = peak_amplitudes(session)
+        src = f"centroids in {session}"
     S = spike_times.shape[0]
-    print(f"{S} spikes | depth range {centroids[:,1].min():.0f}..{centroids[:,1].max():.0f} um")
+    print(f"{S} spikes from {src} | depth range {y_all.min():.0f}..{y_all.max():.0f} um")
 
     samples_per_bin = args.bin_s * args.fs
     time_idx = (spike_times // samples_per_bin).astype(np.int64)
     n_time = int(time_idx.max()) + 1
     print(f"fs={args.fs} bin_s={args.bin_s} -> {n_time} time bins (~{n_time*args.bin_s:.0f} s)")
 
-    y = torch.tensor(centroids[:, 1], dtype=torch.float32)
-    x = torch.tensor(centroids[:, 0], dtype=torch.float32)
+    y = torch.tensor(y_all, dtype=torch.float32)
+    x = torch.tensor(x_all, dtype=torch.float32)
     feat = torch.tensor(amp, dtype=torch.float32)
     tidx = torch.tensor(time_idx, dtype=torch.long)
 
@@ -126,9 +137,9 @@ def main(args) -> None:
     time_s = (np.arange(n_time) + 0.5) * args.bin_s
     win_centers = extras["window_centers"].detach().cpu().numpy()
 
-    np.save(session / "motion_trace.npy", P)
-    np.save(session / "motion_time_s.npy", time_s)
-    np.save(session / "motion_window_centers_um.npy", win_centers)
+    np.save(session / f"motion_trace{args.tag}.npy", P)
+    np.save(session / f"motion_time_s{args.tag}.npy", time_s)
+    np.save(session / f"motion_window_centers_um{args.tag}.npy", win_centers)
     print(f"saved motion_trace.npy {P.shape}  (dims={extras['motion_dims']}, "
           f"max_disp={extras['max_disp_um']} um)")
     flat = P.reshape(-1, P.shape[-1])
@@ -138,7 +149,13 @@ def main(args) -> None:
 
 def build_argparser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--session", type=str, required=True, help="extracted session directory")
+    p.add_argument("--session", type=str, required=True, help="output directory (+ centroid fallback)")
+    p.add_argument("--loc-npy", type=str, default="", help="real localizations .npy (cols include depth & amplitude)")
+    p.add_argument("--times-npy", type=str, default="", help="spike_times .npy matching --loc-npy")
+    p.add_argument("--depth-col", type=int, default=1, help="column of localizations giving depth (y)")
+    p.add_argument("--x-col", type=int, default=0, help="column giving lateral x")
+    p.add_argument("--amp-col", type=int, default=3, help="column giving amplitude (alpha)")
+    p.add_argument("--tag", type=str, default="", help="suffix for saved motion_trace files")
     p.add_argument("--fs", type=float, default=30000.0, help="sampling rate of spike_times (Hz)")
     p.add_argument("--bin-s", type=float, default=1.0)
     p.add_argument("--bin-um", type=float, default=5.0)
