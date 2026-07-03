@@ -25,7 +25,7 @@ from localizer import (  # noqa: E402
     fourier_positional_embedding,
     build_knn_attention_mask,
     physics_forward,
-    compute_ptp,
+    compute_feature,
     masked_recon_loss,
 )
 
@@ -124,7 +124,7 @@ def _forward_batch(model, cfg, wf, coords, mask, device):
     knn = build_knn_attention_mask(xc, zc, mask, k=cfg.get("knn_k", 16)) if cfg["use_knn"] else None
     x, y, z, alpha = model(wf, pos_emb, mask, knn_allowed=knn)
     ptp_pred = physics_forward(x, y, z, alpha, xc, zc, cfg["b"])
-    ptp_true = compute_ptp(wf)
+    ptp_true = compute_feature(wf, cfg.get("recon_feature", "ptp"))
     loss = masked_recon_loss(ptp_true, ptp_pred, mask)
     return loss, (x, y, z, alpha)
 
@@ -256,6 +256,8 @@ def build_cfg(model_type, args):
             cfg[key] = val
     if args.no_normalize:
         cfg["normalize"] = False
+    if args.recon_feature is not None:
+        cfg["recon_feature"] = args.recon_feature
     return cfg
 
 
@@ -278,6 +280,9 @@ def main():
     p.add_argument("--no-checkpoint", action="store_true")
     p.add_argument("--no-normalize", action="store_true",
                    help="disable per-spike PTP normalization (preset default: on)")
+    p.add_argument("--recon-feature",
+                   choices=["ptp", "peak_to_trough", "first_half", "second_half"],
+                   default=None, help="per-channel reconstruction target (preset default: ptp)")
     p.add_argument("--save-predictions", type=str, default=None,
                    help="path to write an absolute-frame predictions .npz")
     # hyperparameter overrides (default None -> fall back to preset/config-json)
