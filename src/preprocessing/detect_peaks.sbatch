@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=detect_peaks
-#SBATCH --output=/scratch/ap7151/sln-fixed/slurm_logs/detect_peaks_%x_%j.out
-#SBATCH --error=/scratch/ap7151/sln-fixed/slurm_logs/detect_peaks_%x_%j.err
+#SBATCH --output=/scratch/ap7151/sln-v2/slurm_logs/detect_peaks_%x_%j.out
+#SBATCH --error=/scratch/ap7151/sln-v2/slurm_logs/detect_peaks_%x_%j.err
 #SBATCH --time=04:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
@@ -19,7 +19,7 @@ if [[ -z "$RECORDING_PATH" || -z "$SESSION_ID" ]]; then
     exit 1
 fi
 
-OUTPUT_PATH="/scratch/ap7151/sln-fixed/runs/${SESSION_ID}"
+OUTPUT_PATH="/scratch/ap7151/sln-v2/runs/${SESSION_ID}"
 
 echo "=== Detect Peaks ==="
 echo "Job ID:    $SLURM_JOB_ID"
@@ -30,11 +30,11 @@ echo "Start:     $(date)"
 echo ""
 
 mkdir -p "$OUTPUT_PATH"
-mkdir -p /scratch/ap7151/sln-fixed/slurm_logs
+mkdir -p /scratch/ap7151/sln-v2/slurm_logs
 
 singularity exec --overlay /scratch/ap7151/envs/pytorch.ext3:ro \
     /share/apps/images/cuda12.8.1-cudnn9.8.0-ubuntu24.04.2.sif \
-    /bin/bash -c "source /ext3/env.sh && python /scratch/ap7151/sln-fixed/src/detect_peaks.py \
+    /bin/bash -c "source /ext3/env.sh && python /scratch/ap7151/sln-v2/src/preprocessing/detect_peaks.py \
         --recording-path $RECORDING_PATH \
         --output-path $OUTPUT_PATH"
 
