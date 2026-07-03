@@ -14,12 +14,16 @@ set -euo pipefail
 
 MODEL_TYPE="${1:-}"
 NUM_SAMPLES="${2:-8}"
+SESSION_PATH="${3:-}"
 
 if [[ -z "$MODEL_TYPE" ]]; then
-    echo "Usage: sbatch sweep_localizer.sbatch <model_type> [num_samples]"
-    echo "Example: sbatch sweep_localizer.sbatch np12 8"
+    echo "Usage: sbatch sweep_localizer.sbatch <model_type> [num_samples] [session_path]"
+    echo "Example: sbatch sweep_localizer.sbatch np12 8 runs/dataset1_p2"
     exit 1
 fi
+
+SESS_ARG=""
+if [[ -n "$SESSION_PATH" ]]; then SESS_ARG=" --session-path ${SESSION_PATH}"; fi
 
 REPO=/scratch/ap7151/sln-v2
 # project-local, kept short (AF_UNIX socket paths must stay < 108 chars) and
@@ -41,7 +45,7 @@ singularity exec --nv --overlay /scratch/${USER}/envs/pytorch.ext3:ro \
     /share/apps/images/cuda12.8.1-cudnn9.8.0-ubuntu24.04.2.sif \
     /bin/bash -c "source /ext3/env.sh && export RAY_TMPDIR=${RAY_TMPDIR} && python ${REPO}/src/models/sweep_localizer.py \
         --model-type ${MODEL_TYPE} \
-        --num-samples ${NUM_SAMPLES}"
+        --num-samples ${NUM_SAMPLES}${SESS_ARG}"
 
 echo ""
 echo "Completed at: $(date)"
