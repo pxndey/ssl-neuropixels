@@ -4,10 +4,9 @@ checkpoints/
 hpo_runs/
 hpo_scratch/
 .raytmp/
-plots/localizations/
-plots/localizations_unnorm/
-plots/*.png
+/plots/
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
 AGENTS.md
+CLAUDE.md
