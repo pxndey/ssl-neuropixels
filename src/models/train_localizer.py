@@ -47,9 +47,10 @@ class SpikeNeighborhoodDataset(Dataset):
     `neighbor_counts < M`.
     """
 
-    def __init__(self, session_path, fixed_n):
+    def __init__(self, session_path, fixed_n, normalize=False):
         self.session_path = Path(session_path)
         self.fixed_n = int(fixed_n)
+        self.normalize = bool(normalize)
         self.waveforms = np.load(self.session_path / "neighborhood_waveforms.npy", mmap_mode="r")
         self.local_coords = np.load(self.session_path / "local_coords.npy", mmap_mode="r")
         self.neighbor_counts = np.load(self.session_path / "neighbor_counts.npy", mmap_mode="r")
@@ -74,6 +75,13 @@ class SpikeNeighborhoodDataset(Dataset):
         coords[:m] = self.local_coords[i, :m, :]
         mask = np.zeros(fn, dtype=bool)
         mask[:m] = True
+        if self.normalize:
+            # per-spike PTP normalization: divide by this spike's own peak-channel
+            # PTP. Uses only this sample -> no fitted/pooled statistics, no train/test
+            # leakage; positions are scale-invariant so only alpha is rescaled.
+            ptp = wf.max(axis=1) - wf.min(axis=1)          # (fn,) per-channel PTP
+            scale = float(ptp.max())
+            wf = wf / (scale if scale > 1e-6 else 1.0)
         centroid = np.array(self.centroids[i], dtype=np.float32)  # copy: mmap is read-only
         return (
             torch.from_numpy(wf),
@@ -148,7 +156,8 @@ def run_training(cfg, session_path, model_type, epochs, device, val_frac,
     ASHA hook used by the sweep); `None` in plain CLI mode.
     """
     device = torch.device(device)
-    ds = SpikeNeighborhoodDataset(session_path, fixed_n=cfg["n_channels"])
+    ds = SpikeNeighborhoodDataset(session_path, fixed_n=cfg["n_channels"],
+                                  normalize=cfg.get("normalize", False))
     train_idx, val_idx, test_idx = split_train_val_test_indices(
         len(ds), val_frac, test_frac, seed, max_spikes=max_spikes)
 
@@ -245,6 +254,8 @@ def build_cfg(model_type, args):
     for key, val in overrides.items():
         if val is not None:
             cfg[key] = val
+    if args.no_normalize:
+        cfg["normalize"] = False
     return cfg
 
 
@@ -265,6 +276,8 @@ def main():
     p.add_argument("--checkpoint-path", type=str, default=None,
                    help="default: <repo>/checkpoints/<session_id>/localizer.pt")
     p.add_argument("--no-checkpoint", action="store_true")
+    p.add_argument("--no-normalize", action="store_true",
+                   help="disable per-spike PTP normalization (preset default: on)")
     p.add_argument("--save-predictions", type=str, default=None,
                    help="path to write an absolute-frame predictions .npz")
     # hyperparameter overrides (default None -> fall back to preset/config-json)

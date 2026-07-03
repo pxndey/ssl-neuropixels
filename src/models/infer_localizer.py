@@ -64,7 +64,8 @@ def main():
     model.load_state_dict(ckpt["model_state_dict"])
     model.eval()
 
-    ds = SpikeNeighborhoodDataset(session_path, fixed_n=cfg["n_channels"])
+    ds = SpikeNeighborhoodDataset(session_path, fixed_n=cfg["n_channels"],
+                                  normalize=cfg.get("normalize", False))
     _, _, test_idx = split_train_val_test_indices(len(ds), args.val_frac, args.test_frac, args.seed)
     print(f"[infer] n_spikes={len(ds)} test_spikes={len(test_idx)}", flush=True)
 
