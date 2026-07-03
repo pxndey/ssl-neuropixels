@@ -55,6 +55,32 @@ def compute_ptp(wf):
     return wf.amax(dim=-1) - wf.amin(dim=-1)
 
 
+def compute_feature(wf, feature="ptp"):
+    """Per-channel scalar reconstruction target from a raw waveform (..., T).
+
+    ptp            : peak-to-peak over the full window, amax - amin  [default]
+    peak_to_trough : trough magnitude |amin| (modulus, so always >= 0)
+    first_half     : peak-to-peak over the first half of the window
+    second_half    : peak-to-peak over the second half of the window
+
+    All are non-negative amplitude-like quantities that fall off with distance,
+    so the same monopole decoder (alpha / sqrt(r^2 + b^2)) reconstructs them.
+    The decoder output is strictly positive, so the target must be too.
+    """
+    if feature == "ptp":
+        return wf.amax(dim=-1) - wf.amin(dim=-1)
+    if feature == "peak_to_trough":
+        return wf.amin(dim=-1).abs()
+    T = wf.shape[-1]
+    if feature == "first_half":
+        h = wf[..., : T // 2]
+    elif feature == "second_half":
+        h = wf[..., T // 2:]
+    else:
+        raise ValueError(f"unknown recon_feature: {feature!r}")
+    return h.amax(dim=-1) - h.amin(dim=-1)
+
+
 # ---------------------------------------------------------------------------
 # Fixed Fourier positional embedding of 2D channel coordinates
 # ---------------------------------------------------------------------------
@@ -198,6 +224,7 @@ NP12_CONFIG = {
     "use_knn": False,
     "knn_k": 16,
     "normalize": True,   # per-spike PTP normalization (scale-invariant)
+    "recon_feature": "ptp",   # ptp | peak_to_trough | first_half | second_half
     "max_freq": 0.1,
     "lr": 1e-3,
     "weight_decay": 0.0,
@@ -214,6 +241,7 @@ NPULTRA_CONFIG = {
     "use_knn": True,
     "knn_k": 16,
     "normalize": True,   # per-spike PTP normalization (scale-invariant)
+    "recon_feature": "ptp",   # ptp | peak_to_trough | first_half | second_half
     "max_freq": 0.1,
     "lr": 1e-3,
     "weight_decay": 0.0,
