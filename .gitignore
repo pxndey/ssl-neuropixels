@@ -1,4 +1,10 @@
 runs/
 slurm_logs/
+checkpoints/
+hpo_runs/
+hpo_scratch/
+.raytmp/
+__pycache__/
+*.pyc
 .ipynb_checkpoints/
 AGENTS.md

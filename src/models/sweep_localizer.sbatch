@@ -1,0 +1,48 @@
+#!/bin/bash
+#SBATCH --job-name=sweep_localizer
+#SBATCH --output=/scratch/ap7151/sln-v2/slurm_logs/sweep_localizer_%x_%j.out
+#SBATCH --error=/scratch/ap7151/sln-v2/slurm_logs/sweep_localizer_%x_%j.err
+#SBATCH --time=08:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --gres=gpu:1
+#SBATCH --mem=128G
+#SBATCH --account=torch_pr_60_general
+
+set -euo pipefail
+
+MODEL_TYPE="${1:-}"
+NUM_SAMPLES="${2:-8}"
+
+if [[ -z "$MODEL_TYPE" ]]; then
+    echo "Usage: sbatch sweep_localizer.sbatch <model_type> [num_samples]"
+    echo "Example: sbatch sweep_localizer.sbatch np12 8"
+    exit 1
+fi
+
+REPO=/scratch/ap7151/sln-v2
+# project-local, kept short (AF_UNIX socket paths must stay < 108 chars) and
+# auto-removed on exit so nothing lingers
+export RAY_TMPDIR="${REPO}/.raytmp/${SLURM_JOB_ID}"
+mkdir -p "$RAY_TMPDIR"
+trap 'rm -rf "$RAY_TMPDIR"' EXIT
+mkdir -p "${REPO}/slurm_logs"
+
+echo "=== Sweep Localizer (Ray Tune ASHA) ==="
+echo "Job ID:      $SLURM_JOB_ID"
+echo "Model:       $MODEL_TYPE"
+echo "Num samples: $NUM_SAMPLES"
+echo "RAY_TMPDIR:  $RAY_TMPDIR"
+echo "Start:       $(date)"
+echo ""
+
+singularity exec --nv --overlay /scratch/${USER}/envs/pytorch.ext3:ro \
+    /share/apps/images/cuda12.8.1-cudnn9.8.0-ubuntu24.04.2.sif \
+    /bin/bash -c "source /ext3/env.sh && export RAY_TMPDIR=${RAY_TMPDIR} && python ${REPO}/src/models/sweep_localizer.py \
+        --model-type ${MODEL_TYPE} \
+        --num-samples ${NUM_SAMPLES}"
+
+echo ""
+echo "Completed at: $(date)"
+echo "Ray temp dir ${RAY_TMPDIR} auto-removed on exit"
