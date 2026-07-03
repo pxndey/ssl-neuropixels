@@ -1,9 +1,9 @@
 """Plot xy / yz / zx localization scatters for the trained localizer models.
 
-For each session, three projections of the self-supervised (SLN) test-set
+For each session, three projections of the self-supervised (SLNv2) test-set
 localizations (runs/<session>/inference/localizations.npy, probe-global). For the
 `dataset*` sessions we also load the raw monopolar-triangulation localizations
-from the sibling `sln` project and render a 1x2 comparison (SLN | MP) per
+from the sibling `sln` project and render a 1x2 comparison (SLNv2 | MP) per
 projection; the `dandi` (NP Ultra) session has no monopolar reference, so it gets
 a single panel per projection.
 
@@ -118,7 +118,7 @@ def render_session(session, n_sample, seed, out_dir):
     mono_xyz, mono_t = load_mono(session)
 
     mi = sample(len(mine_xyz), n_sample, seed)
-    methods = [("SLN", mine_xyz[mi], norm_time(mine_t[mi]))]
+    methods = [("SLNv2", mine_xyz[mi], norm_time(mine_t[mi]))]
     if mono_xyz is not None:
         oi = sample(len(mono_xyz), n_sample, seed)
         methods.append(("MP", mono_xyz[oi], norm_time(mono_t[oi])))
