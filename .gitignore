@@ -1,3 +1,4 @@
 runs/
 slurm_logs/
 .ipynb_checkpoints/
+AGENTS.md
