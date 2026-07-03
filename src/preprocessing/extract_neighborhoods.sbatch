@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=extract_neighborhoods
-#SBATCH --output=/scratch/ap7151/sln-fixed/slurm_logs/extract_neighborhoods_%j.out
-#SBATCH --error=/scratch/ap7151/sln-fixed/slurm_logs/extract_neighborhoods_%j.err
+#SBATCH --output=/scratch/ap7151/sln-v2/slurm_logs/extract_neighborhoods_%j.out
+#SBATCH --error=/scratch/ap7151/sln-v2/slurm_logs/extract_neighborhoods_%j.err
 #SBATCH --time=06:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
@@ -21,7 +21,7 @@ if [[ -z "$SESSION_ID" || -z "$RECORDING_PATH" ]]; then
     exit 1
 fi
 
-SESSION_PATH="/scratch/ap7151/sln-fixed/runs/${SESSION_ID}"
+SESSION_PATH="/scratch/ap7151/sln-v2/runs/${SESSION_ID}"
 
 echo "=== Extract Neighborhoods ==="
 echo "Job ID:    $SLURM_JOB_ID"
@@ -34,7 +34,7 @@ echo ""
 
 singularity exec --overlay /scratch/${USER}/envs/pytorch.ext3:ro \
     /share/apps/images/cuda12.8.1-cudnn9.8.0-ubuntu24.04.2.sif \
-    /bin/bash -c "source /ext3/env.sh && python /scratch/ap7151/sln-fixed/src/extract_neighborhoods.py \
+    /bin/bash -c "source /ext3/env.sh && python /scratch/ap7151/sln-v2/src/preprocessing/extract_neighborhoods.py \
         --session-path ${SESSION_PATH} \
         --recording-path ${RECORDING_PATH} \
         --radius-um ${RADIUS_UM}"
