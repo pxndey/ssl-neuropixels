@@ -197,6 +197,7 @@ NP12_CONFIG = {
     "n_samples": 90,
     "use_knn": False,
     "knn_k": 16,
+    "normalize": True,   # per-spike PTP normalization (scale-invariant)
     "max_freq": 0.1,
     "lr": 1e-3,
     "weight_decay": 0.0,
@@ -212,6 +213,7 @@ NPULTRA_CONFIG = {
     "n_samples": 90,
     "use_knn": True,
     "knn_k": 16,
+    "normalize": True,   # per-spike PTP normalization (scale-invariant)
     "max_freq": 0.1,
     "lr": 1e-3,
     "weight_decay": 0.0,
