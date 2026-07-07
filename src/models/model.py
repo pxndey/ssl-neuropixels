@@ -24,10 +24,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-# ---------------------------------------------------------------------------
-# Physics decoder + losses (unchanged from the sample script)
-# ---------------------------------------------------------------------------
-
 def physics_forward(x, y, z, alpha, xc, zc, b):
     """Predict per-channel PTP from point-source params via the monopole model.
 
@@ -48,11 +44,6 @@ def masked_recon_loss(ptp_true, ptp_pred, mask):
     diff2 = (ptp_true - ptp_pred) ** 2
     diff2 = diff2 * mask.float()
     return diff2.sum() / mask.float().sum().clamp(min=1)
-
-
-def compute_ptp(wf):
-    """wf: (..., n_samples) raw waveform -> peak-to-peak amplitude."""
-    return wf.amax(dim=-1) - wf.amin(dim=-1)
 
 
 def compute_feature(wf, feature="ptp"):
@@ -81,10 +72,6 @@ def compute_feature(wf, feature="ptp"):
     return h.amax(dim=-1) - h.amin(dim=-1)
 
 
-# ---------------------------------------------------------------------------
-# Fixed Fourier positional embedding of 2D channel coordinates
-# ---------------------------------------------------------------------------
-
 def fourier_positional_embedding(xc, zc, pos_dim=8, max_freq=0.1):
     """Fixed sinusoidal ("Fourier feature") embedding of 2D channel coordinates.
 
@@ -112,10 +99,6 @@ def fourier_positional_embedding(xc, zc, pos_dim=8, max_freq=0.1):
     return torch.cat([sx, cx, sz, cz], dim=-1)
 
 
-# ---------------------------------------------------------------------------
-# k-NN restricted attention mask (unchanged from the sample script)
-# ---------------------------------------------------------------------------
-
 def build_knn_attention_mask(xc, zc, mask, k=16):
     """Per-electrode k nearest-neighbor attention mask from channel geometry.
 
@@ -130,7 +113,7 @@ def build_knn_attention_mask(xc, zc, mask, k=16):
     dist = torch.cdist(coords, coords)
 
     big = torch.finfo(dist.dtype).max
-    pad_mask_2d = ~mask.unsqueeze(1)                    # (B, 1, N) True = pad key
+    pad_mask_2d = ~mask.unsqueeze(1)
     dist = dist.masked_fill(pad_mask_2d, big)
 
     k_eff = min(k, N)
@@ -138,13 +121,9 @@ def build_knn_attention_mask(xc, zc, mask, k=16):
 
     allowed = torch.zeros(B, N, N, dtype=torch.bool, device=xc.device)
     allowed.scatter_(-1, nn_idx, True)
-    allowed = allowed & mask.unsqueeze(1)               # never attend to pad keys
+    allowed = allowed & mask.unsqueeze(1)
     return allowed
 
-
-# ---------------------------------------------------------------------------
-# Set/attention encoder (adapted: single mask + learned mask token)
-# ---------------------------------------------------------------------------
 
 class SetLocalizer(nn.Module):
     """Fixed-N set encoder over a spike's neighborhood channels.
@@ -172,14 +151,13 @@ class SetLocalizer(nn.Module):
         assert self.token_dim % num_heads == 0, (
             f"token_dim={self.token_dim} (feat_dim+pos_dim) must be divisible "
             f"by num_heads={num_heads}")
-        # learned placeholder token for any structurally-absent (pad) slot
         self.mask_token = nn.Parameter(torch.randn(1, 1, self.token_dim) * 0.02)
         self.attn = nn.MultiheadAttention(self.token_dim, num_heads=num_heads,
                                           batch_first=True)
         self.head = nn.Sequential(
             nn.Linear(self.token_dim, hidden),
             nn.ReLU(inplace=True),
-            nn.Linear(hidden, 4),   # raw x, y, z, alpha
+            nn.Linear(hidden, 4),
         )
 
     def forward(self, wf, pos_emb, mask, knn_allowed=None):
@@ -193,7 +171,7 @@ class SetLocalizer(nn.Module):
         feat = self.temporal_encoder(wf.reshape(B * N, 1, T)).squeeze(-1)
         feat = feat.reshape(B, N, -1)
 
-        tokens = torch.cat([feat, pos_emb], dim=-1)          # (B, N, token_dim)
+        tokens = torch.cat([feat, pos_emb], dim=-1)
         mask_token = self.mask_token.expand(B, N, -1)
         tokens = torch.where(mask.unsqueeze(-1), tokens, mask_token)
 
@@ -209,22 +187,18 @@ class SetLocalizer(nn.Module):
 
         raw = self.head(pooled)
         x, y_raw, z, alpha_raw = raw.unbind(-1)
-        y = F.softplus(y_raw)          # y >= 0 (sign unidentifiable)
-        alpha = F.softplus(alpha_raw)  # alpha > 0
+        y = F.softplus(y_raw)
+        alpha = F.softplus(alpha_raw)
         return x, y, z, alpha
 
-
-# ---------------------------------------------------------------------------
-# Config presets (built-in defaults; HPO / CLI flags override these)
-# ---------------------------------------------------------------------------
 
 NP12_CONFIG = {
     "n_channels": 12,
     "n_samples": 90,
     "use_knn": False,
     "knn_k": 16,
-    "normalize": True,   # per-spike PTP normalization (scale-invariant)
-    "recon_feature": "ptp",   # ptp | peak_to_trough | first_half | second_half
+    "normalize": True,
+    "recon_feature": "ptp",
     "max_freq": 0.1,
     "lr": 1e-3,
     "weight_decay": 0.0,
@@ -240,8 +214,8 @@ NPULTRA_CONFIG = {
     "n_samples": 90,
     "use_knn": True,
     "knn_k": 16,
-    "normalize": True,   # per-spike PTP normalization (scale-invariant)
-    "recon_feature": "ptp",   # ptp | peak_to_trough | first_half | second_half
+    "normalize": True,
+    "recon_feature": "ptp",
     "max_freq": 0.1,
     "lr": 1e-3,
     "weight_decay": 0.0,
@@ -252,10 +226,6 @@ NPULTRA_CONFIG = {
     "b": 1.0,
 }
 
-
-# ---------------------------------------------------------------------------
-# Synthetic wiring check (not part of the training pipeline)
-# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
     for name, cfg in [("np12", NP12_CONFIG), ("npultra", NPULTRA_CONFIG)]:
@@ -272,7 +242,7 @@ if __name__ == "__main__":
                              cfg["hidden"], cfg["num_heads"])
         x, y, z, alpha = model(wf, pos, mask, knn_allowed=knn)
         ptp_pred = physics_forward(x, y, z, alpha, xc, zc, cfg["b"])
-        ptp_true = compute_ptp(wf)
+        ptp_true = compute_feature(wf, "ptp")
         loss = masked_recon_loss(ptp_true, ptp_pred, mask)
         print(f"{name}: x{tuple(x.shape)} ptp{tuple(ptp_pred.shape)} "
               f"loss={loss.item():.4f}")

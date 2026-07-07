@@ -18,7 +18,7 @@ CONFIG_JSON="${3:-}"
 MODEL_TYPE="${4:-np12}"
 
 if [[ -z "$SESSION_ID" || -z "$FEATURE" ]]; then
-    echo "Usage: sbatch feature_experiment.sbatch <session_id> <feature> [config_json] [model_type]"
+    echo "Usage: sbatch feature_exp.sbatch <session_id> <feature> [config_json] [model_type]"
     echo "  feature in: ptp | peak_to_trough | first_half | second_half"
     exit 1
 fi
@@ -45,11 +45,11 @@ mkdir -p "${REPO}/slurm_logs"
 singularity exec --nv --overlay /scratch/${USER}/envs/pytorch.ext3:ro \
     /share/apps/images/cuda12.8.1-cudnn9.8.0-ubuntu24.04.2.sif \
     /bin/bash -c "source /ext3/env.sh && \
-        python ${REPO}/src/models/train_localizer.py \
+        python ${REPO}/src/models/train.py \
             --model-type ${MODEL_TYPE} --session-path ${SESSION_PATH} \
             --recon-feature ${FEATURE} --checkpoint-path ${CKPT}${EXTRA} && \
-        python ${REPO}/src/models/infer_localizer.py \
-            --session-path ${SESSION_PATH} --checkpoint-path ${CKPT} --output ${INFER_OUT}"
+        python ${REPO}/src/models/infer.py --mode single \
+            --session-path ${SESSION_PATH} --checkpoint ${CKPT} --output ${INFER_OUT}"
 
 echo ""
 echo "Completed at: $(date)"

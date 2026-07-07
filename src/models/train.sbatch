@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=train_localizer
-#SBATCH --output=/scratch/ap7151/sln-v2/slurm_logs/train_localizer_%x_%j.out
-#SBATCH --error=/scratch/ap7151/sln-v2/slurm_logs/train_localizer_%x_%j.err
+#SBATCH --output=/scratch/ap7151/sln-v2/slurm_logs/train_%x_%j.out
+#SBATCH --error=/scratch/ap7151/sln-v2/slurm_logs/train_%x_%j.err
 #SBATCH --time=12:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
@@ -20,8 +20,8 @@ BATCH_SIZE="${5:-256}"
 LR="${6:-}"
 
 if [[ -z "$SESSION_ID" || -z "$MODEL_TYPE" ]]; then
-    echo "Usage: sbatch train_localizer.sbatch <session_id> <model_type> [config_json] [epochs] [batch_size] [lr]"
-    echo "Example: sbatch train_localizer.sbatch dataset1_p1 np12 /scratch/ap7151/sln-v2/hpo_runs/np12/best_config.json"
+    echo "Usage: sbatch train.sbatch <session_id> <model_type> [config_json] [epochs] [batch_size] [lr]"
+    echo "Example: sbatch train.sbatch dataset1_p1 np12 /scratch/ap7151/sln-v2/hpo_runs/np12/best_config.json"
     exit 1
 fi
 
@@ -46,7 +46,7 @@ mkdir -p "${REPO}/slurm_logs"
 
 singularity exec --nv --overlay /scratch/${USER}/envs/pytorch.ext3:ro \
     /share/apps/images/cuda12.8.1-cudnn9.8.0-ubuntu24.04.2.sif \
-    /bin/bash -c "source /ext3/env.sh && python ${REPO}/src/models/train_localizer.py \
+    /bin/bash -c "source /ext3/env.sh && python ${REPO}/src/models/train.py \
         --model-type ${MODEL_TYPE} \
         --session-path ${SESSION_PATH} \
         --epochs ${EPOCHS} \
