@@ -28,7 +28,7 @@ mkdir -p "${REPO}/slurm_logs"
 # parallel (n_jobs>1, mp_context=spawn) -> NO --fakeroot (breaks forked children)
 singularity exec --overlay /scratch/${USER}/envs/pytorch.ext3:ro \
     /share/apps/images/cuda12.8.1-cudnn9.8.0-ubuntu24.04.2.sif \
-    /bin/bash -c "source /ext3/env.sh && python ${REPO}/src/localize_mono/run_localize.py \
+    /bin/bash -c "source /ext3/env.sh && python ${REPO}/src/localize_mono/pipeline.py \
         --session-id ${SESSION_ID} --n-jobs ${SLURM_CPUS_PER_TASK}"
 
 echo ""
