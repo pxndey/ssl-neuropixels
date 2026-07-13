@@ -34,7 +34,7 @@ mkdir -p /scratch/ap7151/sln-v2/slurm_logs
 
 singularity exec --overlay /scratch/ap7151/envs/pytorch.ext3:ro \
     /share/apps/images/cuda12.8.1-cudnn9.8.0-ubuntu24.04.2.sif \
-    /bin/bash -c "source /ext3/env.sh && python /scratch/ap7151/sln-v2/src/preprocessing/detect_peaks.py \
+    /bin/bash -c "source /ext3/env.sh && python /scratch/ap7151/sln-v2/src/spike-det-model/detect_peaks.py \
         --recording-path $RECORDING_PATH \
         --output-path $OUTPUT_PATH"
 
