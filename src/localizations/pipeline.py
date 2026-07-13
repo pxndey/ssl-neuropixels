@@ -24,7 +24,7 @@ from spikeinterface.sortingcomponents.waveforms.temporal_pca import (
 )
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from localize_mono.core import (
+from localizations.core import (
     preprocess_recording,
     get_peak_dtype,
     DEFAULT_MS_BEFORE_LOC,

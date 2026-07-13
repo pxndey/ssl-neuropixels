@@ -6,7 +6,7 @@ Just two modules:
 - pipeline: localization runner
 """
 
-from localize_mono.core import (
+from localizations.core import (
     preprocess_recording,
     get_peak_dtype,
     DEFAULT_FS,

@@ -122,7 +122,7 @@ def _forward_batch(model, cfg, wf, coords, mask, device):
     x, y, z, alpha = model(wf, pos_emb, mask, knn_allowed=knn)
     ptp_pred = physics_forward(x, y, z, alpha, xc, zc, cfg["b"])
     ptp_true = compute_feature(wf, cfg.get("recon_feature", "ptp"))
-    loss = masked_recon_loss(ptp_true, ptp_pred, mask)
+    loss = masked_recon_loss(ptp_true, ptp_pred, mask, cfg.get("loss_type", "mse"))
     return loss, (x, y, z, alpha)
 
 
@@ -380,6 +380,8 @@ def build_cfg(model_type, args):
         cfg["normalize"] = False
     if args.recon_feature is not None:
         cfg["recon_feature"] = args.recon_feature
+    if args.loss_type is not None:
+        cfg["loss_type"] = args.loss_type
     return cfg
 
 
@@ -405,6 +407,9 @@ def main():
     p.add_argument("--recon-feature",
                    choices=["ptp", "peak_to_trough", "first_half", "second_half"],
                    default=None, help="per-channel reconstruction target (preset default: ptp)")
+    p.add_argument("--loss-type",
+                   choices=["mse", "mae", "rmse"],
+                   default=None, help="reconstruction loss function (preset default: mse)")
     p.add_argument("--save-predictions", type=str, default=None,
                    help="path to write an absolute-frame predictions .npz")
 
