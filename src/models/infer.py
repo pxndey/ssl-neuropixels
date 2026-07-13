@@ -225,6 +225,8 @@ def main():
     p.add_argument("--device", type=str, default=None)
     args = p.parse_args()
 
+    assert torch.cuda.is_available(), "CUDA is required but not available"
+
     if args.mode == "single":
         if not args.session_path:
             p.error("--session-path is required for single mode")

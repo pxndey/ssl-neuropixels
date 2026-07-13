@@ -441,6 +441,8 @@ def main():
 
     args = p.parse_args()
 
+    assert torch.cuda.is_available(), "CUDA is required but not available"
+
     if args.sweep:
         _run_sweep(args)
         return
