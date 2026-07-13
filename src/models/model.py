@@ -39,11 +39,23 @@ def physics_forward(x, y, z, alpha, xc, zc, b):
     return alpha.unsqueeze(-1) / torch.sqrt(r2)
 
 
-def masked_recon_loss(ptp_true, ptp_pred, mask):
-    """MSE reconstruction loss, ignoring padded (nonexistent) channels."""
-    diff2 = (ptp_true - ptp_pred) ** 2
-    diff2 = diff2 * mask.float()
-    return diff2.sum() / mask.float().sum().clamp(min=1)
+def masked_recon_loss(ptp_true, ptp_pred, mask, loss_type="mse"):
+    """Reconstruction loss, ignoring padded (nonexistent) channels.
+
+    loss_type: "mse" (mean squared error), "mae" (mean absolute error),
+               "rmse" (root mean squared error)
+    """
+    mask_f = mask.float()
+    n = mask_f.sum().clamp(min=1)
+    diff = (ptp_true - ptp_pred) * mask_f
+    if loss_type == "mse":
+        return (diff ** 2).sum() / n
+    elif loss_type == "mae":
+        return diff.abs().sum() / n
+    elif loss_type == "rmse":
+        return torch.sqrt((diff ** 2).sum() / n)
+    else:
+        raise ValueError(f"unknown loss_type: {loss_type!r}")
 
 
 def compute_feature(wf, feature="ptp"):
@@ -199,6 +211,7 @@ NP12_CONFIG = {
     "knn_k": 16,
     "normalize": True,
     "recon_feature": "ptp",
+    "loss_type": "mse",
     "max_freq": 0.1,
     "lr": 1e-3,
     "weight_decay": 0.0,
@@ -216,6 +229,7 @@ NPULTRA_CONFIG = {
     "knn_k": 16,
     "normalize": True,
     "recon_feature": "ptp",
+    "loss_type": "mse",
     "max_freq": 0.1,
     "lr": 1e-3,
     "weight_decay": 0.0,
