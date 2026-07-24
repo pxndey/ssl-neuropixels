@@ -22,7 +22,7 @@ echo "Job ID: $SLURM_JOB_ID  Start: $(date)"
 echo "Config: ${CFG}"
 singularity exec --nv --overlay /scratch/${USER}/envs/pytorch.ext3:ro \
     /share/apps/images/cuda12.8.1-cudnn9.8.0-ubuntu24.04.2.sif \
-    /bin/bash -c "source /ext3/env.sh && python ${REPO}/src/models/drift_train.py \
+    /bin/bash -c "source /ext3/env.sh && python ${REPO}/src/models/FAIL_drift_train.py \
         --model-type np12 \
         --session-path ${SESSION_PATH} \
         --config-json ${CFG} \

@@ -13,9 +13,8 @@ The raster must span the full recording so that 1s time bins separated by
 ``window_bins`` seconds can be cross-correlated. Using a subsample (default
 50k spikes) keeps the computational graph for the dredge loss manageable.
 
-Sweep mode (--sweep) runs ASHA over (gamma_1, gamma_2, window_bins, lr, sigma,
-beta, max_shift_bins) selecting on val_loss, writing to
-<repo>/hpo_runs/<model_type>_drift/best_config.json.
+Sweep mode (--sweep) runs ASHA over (lambda_smooth, window_bins, lr, sigma,
+beta, max_shift_bins) selecting on val_dredge.
 """
 
 import argparse
@@ -31,7 +30,7 @@ from torch.utils.data import DataLoader, Dataset
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from model import NP12_CONFIG, NPULTRA_CONFIG
-from drift_model import UnifiedDriftLocalizer
+from FAIL_drift_model import UnifiedDriftLocalizer
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CONFIGS = {"np12": NP12_CONFIG, "NPULTRA_CONFIG": NPULTRA_CONFIG}
@@ -196,7 +195,8 @@ def _run_monopole_epoch(model, cfg, ds, indices, device, optimizer=None):
     for wf, coords, mask, centroid, times_sec in loader:
         wf, coords, mask, centroid, times_sec = _to_device(
             (wf, coords, mask, centroid, times_sec), device)
-        l_mono, _, _, _ = model(wf, coords, mask, centroid, times_sec)
+        l_mono, _, _, _ = model(wf, coords, mask, centroid, times_sec,
+                                 phase="monopole")
         if train:
             optimizer.zero_grad()
             l_mono.backward()
@@ -216,7 +216,8 @@ def _run_dredge_epoch(model, cfg, ds, raster_indices, device, optimizer=None):
         ds, raster_indices, device)
 
     torch.set_grad_enabled(train)
-    _, l_dredge, l_smooth, _ = model(wf, coords, mask, centroid, times_sec)
+    _, l_dredge, l_smooth, _ = model(wf, coords, mask, centroid, times_sec,
+                                      phase="dredge")
     total = cfg["gamma_1"] * l_dredge + cfg["gamma_2"] * l_smooth
     if train:
         optimizer.zero_grad()
@@ -239,7 +240,8 @@ def _eval_monopole(model, cfg, ds, indices, device):
     for wf, coords, mask, centroid, times_sec in loader:
         wf, coords, mask, centroid, times_sec = _to_device(
             (wf, coords, mask, centroid, times_sec), device)
-        l_mono, _, _, _ = model(wf, coords, mask, centroid, times_sec)
+        l_mono, _, _, _ = model(wf, coords, mask, centroid, times_sec,
+                                 phase="monopole")
         n = wf.shape[0]
         total += l_mono.item() * n
         count += n
@@ -254,7 +256,8 @@ def _eval_dredge(model, cfg, ds, raster_indices, device):
     wf, coords, mask, centroid, times_sec = _load_raster_batch(
         ds, raster_indices, device)
     torch.set_grad_enabled(False)
-    _, l_dredge, l_smooth, _ = model(wf, coords, mask, centroid, times_sec)
+    _, l_dredge, l_smooth, _ = model(wf, coords, mask, centroid, times_sec,
+                                      phase="dredge")
     torch.set_grad_enabled(True)
     return l_dredge.item(), l_smooth.item()
 
@@ -448,20 +451,23 @@ def run_drift_training(cfg, session_path, model_type, epochs, device, val_frac,
 
 
 def _save_predictions(model, cfg, ds, pred_idx, device, out_path):
-    """Save per-spike absolute-frame predictions + drift trace."""
+    """Save probe-frame and drift-corrected predictions without registration."""
     model.eval()
     from torch.utils.data import Subset
     loader = DataLoader(Subset(ds, pred_idx), batch_size=cfg["mono_batch_size"],
                         shuffle=False, collate_fn=collate_fn, num_workers=4,
                         pin_memory=True, drop_last=False)
-    all_x, all_y, all_z, all_alpha, all_t, all_drift = [], [], [], [], [], []
+    all_x, all_y, all_z_probe, all_z_brain = [], [], [], []
+    all_alpha, all_t, all_drift = [], [], []
     torch.set_grad_enabled(False)
     for wf, coords, mask, centroid, times_sec in loader:
         wf, coords, mask, centroid, times_sec = _to_device(
             (wf, coords, mask, centroid, times_sec), device)
-        _, _, _, extras = model(wf, coords, mask, centroid, times_sec)
-        all_x.append(extras["x_brain_abs"].cpu().numpy())
-        all_z.append(extras["z_brain_abs"].cpu().numpy())
+        _, _, _, extras = model(wf, coords, mask, centroid, times_sec,
+                                 phase="inference")
+        all_x.append(extras["x_probe"].cpu().numpy())
+        all_z_probe.append(extras["z_probe"].cpu().numpy())
+        all_z_brain.append(extras["z_brain"].cpu().numpy())
         all_y.append(extras["y"].cpu().numpy())
         all_alpha.append(extras["alpha"].cpu().numpy())
         all_t.append(times_sec.cpu().numpy())
@@ -471,10 +477,12 @@ def _save_predictions(model, cfg, ds, pred_idx, device, out_path):
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     np.savez(out_path,
-             x=np.concatenate(all_x), y=np.concatenate(all_y),
-             z=np.concatenate(all_z), alpha=np.concatenate(all_alpha),
+             x_probe=np.concatenate(all_x), y=np.concatenate(all_y),
+             z_probe=np.concatenate(all_z_probe),
+             z_brain=np.concatenate(all_z_brain),
+             alpha=np.concatenate(all_alpha),
              times_sec=np.concatenate(all_t),
-             drift=np.concatenate(all_drift))
+             sampled_drift=np.concatenate(all_drift))
     print(f"[predictions] saved {out_path} ({sum(len(a) for a in all_x)} spikes)", flush=True)
 
 
@@ -488,7 +496,7 @@ def _sweep_trainable(config, base_cfg=None, models_dir=None, session_path=None,
     import sys as _sys
     if models_dir and models_dir not in _sys.path:
         _sys.path.insert(0, models_dir)
-    from drift_train import run_drift_training
+    from FAIL_drift_train import run_drift_training
 
     def report_fn(metrics):
         from ray import tune as _raytune

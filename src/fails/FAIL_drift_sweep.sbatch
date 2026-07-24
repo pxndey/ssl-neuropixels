@@ -47,7 +47,7 @@ echo ""
 
 singularity exec --nv --overlay /scratch/${USER}/envs/pytorch.ext3:ro \
     /share/apps/images/cuda12.8.1-cudnn9.8.0-ubuntu24.04.2.sif \
-    /bin/bash -c "source /ext3/env.sh && export RAY_TMPDIR=${RAY_TMPDIR} && python ${REPO}/src/models/drift_train.py --sweep \
+    /bin/bash -c "source /ext3/env.sh && export RAY_TMPDIR=${RAY_TMPDIR} && python ${REPO}/src/models/FAIL_drift_train.py --sweep \
         --model-type ${MODEL_TYPE} \
         --num-samples ${NUM_SAMPLES}${SESS_ARG}${RESUME_ARG}"
 
