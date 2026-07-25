@@ -8,5 +8,7 @@ hpo_scratch/
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
-AGENTS.md
-CLAUDE.md
+*.md
+!README.md
+!readme.md
+outputs/

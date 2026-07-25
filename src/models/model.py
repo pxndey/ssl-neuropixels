@@ -172,7 +172,8 @@ class SetLocalizer(nn.Module):
             nn.Linear(hidden, 4),
         )
 
-    def forward(self, wf, pos_emb, mask, knn_allowed=None):
+    def forward(self, wf, pos_emb, mask, knn_allowed=None,
+                return_embedding=False):
         """
         wf:          (B, N, n_samples)  waveforms (zero where padded)
         pos_emb:     (B, N, pos_dim)    positional embeddings
@@ -201,7 +202,10 @@ class SetLocalizer(nn.Module):
         x, y_raw, z, alpha_raw = raw.unbind(-1)
         y = F.softplus(y_raw)
         alpha = F.softplus(alpha_raw)
-        return x, y, z, alpha
+        outputs = (x, y, z, alpha)
+        if return_embedding:
+            return (*outputs, pooled)
+        return outputs
 
 
 NP12_CONFIG = {

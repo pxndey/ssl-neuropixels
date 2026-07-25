@@ -30,6 +30,14 @@ LABEL_MAP = {
     "config/pos_dim": "pos_dim",
     "config/b": "b",
     "config/knn_k": "knn_k",
+    "config/gamma_1": "gamma_1 (dredge)",
+    "config/gamma_2": "gamma_2 (smooth)",
+    "config/temporal_window_bins": "window_bins",
+    "config/sigma": "sigma (um)",
+    "config/beta": "beta (softmax T)",
+    "config/max_shift_bins": "max_shift_bins",
+    "config/raster_subsample": "raster_subsample",
+    "config/bin_width_sec": "bin_width (s)",
 }
 
 
